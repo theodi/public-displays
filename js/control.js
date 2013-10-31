@@ -85,7 +85,7 @@ function switch_image_current(src) {
 
 function switch_html(src) {
 	$("#overlay").fadeOut(2000, function () {
-		$("#overlay").html('<div align="center"><div id="html_div" class="html_div"><div id="html_div_inner"><iframe id="iframe" class="iframe" src="'+src+'"></iframe></div></div></div>');
+		$("#overlay").html('<div align="center"><div id="html_div" class="html_div"><div id="html_div_inner" class="html_div_inner"><iframe id="iframe" class="iframe" src="'+src+'"></iframe></div></div></div>');
 		$("#overlay").fadeIn(2000);
 	});
 }
@@ -107,39 +107,16 @@ var instant_lock = false;
 //Initial playlist counter
 var rotation_counter = 0;
 // How often we change in the general playlist
-var rotation_count = 2;
+var rotation_count = 5;
 
-function init() {
-	load();
-	timer_id = setInterval("load();",12000);
-}
-
-function process_data(allText,lineNum,urgency) {
-	lineNum--;
-	
-	var allTextLines = allText.split(/\r\n|\n/);
-
-	var end = allTextLines.length;
-	if (allTextLines.length > 1) {
-		end = allTextLines.length - 2;
-	}
-	if (lineNum > end) {
-		lineNum = 0;
-		position = 1;
-	}
-	
-	var entry = allTextLines[lineNum].split(',');
-
-	var type = entry[0];
-	var url = entry[1];
-	
+function process_data(type,url,urgency) {
 	if (type == "" || url == "") {
 		if (current_type != "video") {
 			instant_lock = false;
 		}
 		return;
 	} else if (urgency == "instant" && type != "") {
-		instant_lock = true;
+	//	instant_lock = true;
 	}
 	if (instant_lock == true) {
 		if (type == "video" || type == "youtube" || type == "vimeo") {
@@ -224,4 +201,122 @@ function eventGo(type,url) {
 	}
 //	timer_id_instant = setInterval("load_instant();",10000);
 	
+}
+
+function loadStaticPlaylist(url) {
+	console.log("Loading pre-defined playlist from " + url);
+	$.get(url, function(data) {
+		lines = data.split(/\r\n|\n/);
+		for(i=0;i<lines.length;i++) {
+			entry = lines[i].split(',');
+			var tmp = {};
+			tmp.type = entry[0];
+			tmp.link = entry[1];
+			if (tmp.link) {
+				playlist.push(tmp);
+			}
+		}
+	});
+}
+
+function loadGDSSearch(url,prefix) {
+     console.log("Loading data from GDS system for " + prefix);
+     $.ajax({
+          url:url,
+	  async: false,
+          dataType:'json',
+	  contentType: "application/json",
+          success: function(data) {
+		results = data.results;
+		$.each(results, function(index, item) {
+			tmp = {};  
+			tmp.type = "html";
+			tmp.link = prefix + item.slug;
+			playlist.push(tmp);
+		});
+	}
+     });
+}
+
+function loadFlickrPhotos(flickr_api_key,user_id) {
+     console.log("Loading data from Flickr");
+     url = "http://api.flickr.com/services/rest/?method=flickr.people.getPublicPhotos&api_key="+flickr_api_key+"&user_id="+user_id+"&format=json&jsoncallback=?";
+     $.getJSON( url, function( data ) {
+	photos = data.photos.photo;
+	$.each(photos, function(index, item) {
+		url2 = url = "http://api.flickr.com/services/rest/?method=flickr.photos.getSizes&api_key="+flickr_api_key+"&photo_id="+item.id+"&format=json&jsoncallback=?";
+		$.getJSON( url2, function( data2 ) {
+			sizes = data2.sizes.size;
+			pos = sizes.length -1;
+			var tmp = {};
+			tmp.type = "img";
+			tmp.link = sizes[pos].source;
+			playlist.push(tmp);
+		});
+	});
+     }); 
+}
+
+
+function updatePinboardData(user) {
+     console.log("Loading data from pinboard"); 
+     $.ajax({
+          url:'http://feeds.pinboard.in/json/u:' + user,
+          jsonp:"cb",
+          dataType:'jsonp',
+          success: function(data) {
+		$.each(data, function(index, item){
+			var tmp = {};
+			tmp.link = item.u;
+			tmp.title = item.d;
+			tmp.type = getType(item.u);
+			if (tmp.type != "html") {
+				tmp.link = getLink(item.u,tmp.type);
+			}
+			playlist.push(tmp);
+		});
+          } //success
+     }); //ajax
+}
+
+function getType(url) {
+	if (url.indexOf("youtube") > 0) {
+		return "youtube";
+	}
+	if (url.indexOf("vimeo") > 0) {
+		return "vimeo";
+	}
+	return "html";
+}
+
+function getLink(url,type) {
+	if (type == "youtube") {
+		url = url.substring(url.indexOf("v=")+2,url.length);
+		if (url.indexOf("&") > 0) {
+			url = url.substring(0,url.indexOf("&"));
+		}
+		return url;
+	} 
+	if (type == "vimeo") {
+		url = url.substring(url.lastIdexOf("/"),url.length);
+		if (url.indexOf("&") > 0) {
+			url = url.substring(0,url.indexOf("?"));
+		}
+		return url;
+	}
+	return url;
+}
+
+function next() {
+	if (rotation_counter > rotation_count) {
+		rotation_counter = 0;
+	}
+	if (instant_lock == false && rotation_counter == 0 && playlist.length > 0) {
+		var length = playlist.length + 1;
+		var random = Math.floor(Math.random()*length);
+		var item = playlist[random];
+		console.log("Loading " + item.link + " ("+item.type+")");
+		process_data(item.type,item.link,"");
+	}
+	rotation_counter++;
 }
