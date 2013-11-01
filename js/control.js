@@ -110,17 +110,20 @@ var rotation_counter = 0;
 var rotation_count = 5;
 
 function process_data(type,url,urgency) {
+	if (type === current_type && current_url === url) {
+		return;
+	}
 	if (type == "" || url == "") {
 		if (current_type != "video") {
 			instant_lock = false;
 		}
 		return;
 	} else if (urgency == "instant" && type != "") {
-	//	instant_lock = true;
+//		instant_lock = true;
 	}
 	if (instant_lock == true) {
 		if (type == "video" || type == "youtube" || type == "vimeo") {
-			$.post("http://screens.theodi.org/instant_unlock.php", { "screen": screenid  } );
+			$.post(host + "/instant_unlock.php", { "screen": screenid  } );
 		}
 	}
 	process_event(type,url);
@@ -210,8 +213,11 @@ function loadStaticPlaylist(url) {
 		for(i=0;i<lines.length;i++) {
 			entry = lines[i].split(',');
 			var tmp = {};
-			tmp.type = entry[0];
 			tmp.link = entry[1];
+			tmp.type = getType(entry[0]);
+			if (tmp.type != "html") {
+				tmp.link = getLink(tmp.link,tmp.type);
+			}
 			if (tmp.link) {
 				playlist.push(tmp);
 			}
@@ -280,6 +286,9 @@ function updatePinboardData(user) {
 }
 
 function getType(url) {
+	if (url == "home") {
+		return "home";
+	}
 	if (url.indexOf("youtube") > 0) {
 		return "youtube";
 	}
@@ -308,15 +317,35 @@ function getLink(url,type) {
 }
 
 function next() {
+	console.log(rotation_counter);
 	if (rotation_counter > rotation_count) {
 		rotation_counter = 0;
 	}
-	if (instant_lock == false && rotation_counter == 0 && playlist.length > 0) {
-		var length = playlist.length + 1;
-		var random = Math.floor(Math.random()*length);
-		var item = playlist[random];
-		console.log("Loading " + item.link + " ("+item.type+")");
-		process_data(item.type,item.link,"");
-	}
-	rotation_counter++;
+	$.get('ajax/instant1.csv', function(data) {
+		lines = data.split(/\r\n|\n/);
+		for(i=0;i<lines.length;i++) {
+			entry = lines[i].split(',');
+			var item = {};
+			item.link = entry[1];
+			if (entry[1]) {
+				item.type = getType(entry[1]);
+				if (item.type != "html" && item.type != "home") {
+					item.link = getLink(item.link,item.type);
+				}
+			}
+			if (item.link) {
+				process_data(item.type,item.link,"instant");
+				rotation_counter++;
+				break;
+			}
+		}
+		if (instant_lock == false && rotation_counter == 0 && playlist.length > 0) {
+			var length = playlist.length + 1;
+			var random = Math.floor(Math.random()*length);
+			var item = playlist[random];
+			console.log("Loading " + item.link + " ("+item.type+")");
+			process_data(item.type,item.link,"");
+		}
+		rotation_counter++;
+	});
 }

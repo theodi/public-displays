@@ -1,5 +1,7 @@
+var host = "http://orthanc.ecs.soton.ac.uk/~davetaz/odi/public-displays/";
 var playlist = [];
 var flickr_api_key = "";
+var screenid = 1;
 
 $.getJSON( "config.json", function( data ) {
 	flickr_api_key = data.flickr_api_key;
