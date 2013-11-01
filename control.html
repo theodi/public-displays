@@ -1,0 +1,52 @@
+<html>
+<head>
+<script src="http://code.jquery.com/jquery-1.10.2.min.js"></script>
+<script>
+var host = "http://orthanc.ecs.soton.ac.uk/~davetaz/odi/public-displays/";
+
+function toggle(number) {
+	if (screens[number]) {
+		$("#screen"+number).css("background-color","");
+		screens[number] = false;
+	} else {
+		$("#screen"+number).css("background-color","blue");
+		screens[number] = true;
+	}	
+}
+function all_off() {
+	$.get(host + "all_off.php", function(data) {});
+}
+function all_run() {
+	$.get(host + "all_run.php", function(data) {});
+}
+function all_refresh() {
+	$.get(host + "refresh.php", function(data) {});
+}
+function process_instant_action() {
+	action = $("#actions").val();
+	for (var i=0;i<screens.length;i++) {
+		if (screens[i] == true) {
+			write_instant(i,action);
+		}
+	}
+}
+function write_instant(screenid,action) {
+	$.post("instant_action.php", { "screen": screenid, "action": action } );
+}
+
+</script>
+</head>
+<body>
+
+<div align="center">
+<div align="left" style="padding: 1em; width: 95%; border: 1px solid black; border-radius: 10px;">
+
+<h1>Instant Control</h1>
+<div class="screen" id="screen1" onclick="toggle(1);">Screen 1</div>
+<div class="screen" id="screen2" onclick="toggle(2);">Screen 2</div>
+<div class="screen" style="opacity: 0.5" id="screen3" onclick="toggle(3);">Screen 3</div>
+<div class="screen all_off" onclick="all_refresh();">Reload</div>
+<div class="screen all_off" onclick="all_off();">All Off!</div>
+<div class="screen all_off" onclick="all_run();">Run All</div>
+</body>
+</html>
